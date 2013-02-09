@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel=stylesheet type=text/css href="{{ url_for('static', filename='style.css') }}">
+    </head>
+<body>
+
+<script type="text/javascript" src="{{ url_for('static', filename='js/jquery-1.9.0.min.js')}}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='js/jquery.xdomainajax.js')}}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='js/date.format.js')}}"></script>
+<script>
+var $SCRIPT_ROOT = {{request.script_root|tojson|safe}};
+var baseurl = $SCRIPT_ROOT
+// var WB_REST_API_KEY = 'fbzpn6ambx9de5nusf49rv4d'
+// var WB_GEO_API_KEY = '2unavy5kacmhfh95u5cahfvw'
+// var GN_USERNAME = 'ms_test201302'
+// var GN_SERVER = 'ws.geonames.net'
+hotspots = [];
+NHOTSPOTS = 10;
+update_hotspots = {};
+
+function display_hotspots()
+{
+    $(".hotspots").html("");
+    var ul = $('<ul>').appendTo('.hotspots');
+    $(hotspots).each(function(index, item) {
+        ul.prepend(
+        $(document.createElement('li')).html("<span class='temp'>" + item.temp + "&#186;F</span><span class='place'>" + item.place + ", " + item.state + " " + item.postalcode + "</span><span class='date'>" + item.date + "</span>")
+        );
+    });
+}
+
+function encodeID(s) {
+    if (s==='') return '_';
+        return s.replace(/[^a-zA-Z0-9.-\s,]/g, function(match) {
+            return '_'+match[0].charCodeAt(0).toString(16)+'_';
+    });
+}
+
+function hotspots_insert(hotspots, entry)
+{
+    if (hotspots.length == 0 || entry.temp > hotspots[hotspots.length-1].temp)
+    {
+        hotspots.push(entry);
+        // lower_bound = hotspots[0].temp;
+    } else {
+        for (var i=0;i<hotspots.length;i++)
+        {
+            if (entry.temp <= hotspots[i].temp)
+            {
+                hotspots.splice(i,0,entry);
+                break;
+            }
+        }
+    }
+    return hotspots
+}
+
+function update_hotspots_helper(place,forecast)
+{
+    // console.log(forecast);
+    weather = forecast.forecastList;
+    for (var i=0;i<weather.length;i++)
+    {
+        if (weather[i].high != null && (hotspots.length < NHOTSPOTS || weather[i].high > hotspots[0].temp))
+        {
+            entry = {temp: weather[i].high,
+                    date: new Date(weather[i].dateTime).format("ddd mm/dd/yyyy"),
+                    place: place.placeName,
+                    state: place.adminCode1,
+                    postalcode: place.postalcode};
+            hotspots = hotspots_insert(hotspots, entry);
+            if (hotspots.length > NHOTSPOTS)
+            {
+                hotspots.shift();
+            }
+        }
+    }
+}
+
+function get_weather(place,i)
+{
+    var zip = place.postalCode;
+    update_hotspots['f' + i] = function(forecast)
+    {
+        // get postal code of location
+        $.ajax({
+            url: "http://ws.geonames.net/postalCodeLookupJSON?country=US&username=ms_test201302&postalcode=" + zip,
+            type: 'POST',
+            success: function(data) {
+                // console.log(data);
+                if (data.postalcodes.length > 0) {
+                    update_hotspots_helper(data.postalcodes[0],forecast);
+                }
+                // else, no results
+            }
+        });
+    }
+
+    // console.log(place);
+    $.ajax({
+        url: "http://i.wxbug.net/REST/Direct/GetForecast.ashx?api_key=fbzpn6ambx9de5nusf49rv4d&nf=7&l=en&c=US&f=update_hotspots.f" + i + "&zip=" + zip,
+        type: 'GET',
+        dataType: 'jsonp',
+    });
+}
+
+// find nearby places
+function nearby_places(place)
+{
+    //console.log(place);
+    var postalCode = place.postalCode;
+    $.ajax({
+        // radius units in km, 48 km = 30 mi
+        url: "http://ws.geonames.net/findNearbyPostalCodesJSON?radius=48&country=US&username=ms_test201302&maxRows=30&lat=" + place.lat + "&lng=" + place.lng,
+        type: 'POST',
+        success: function(data) {
+            (function loop(j) {
+                setTimeout(function() {
+                    var index = data.postalCodes.length-j;
+                    get_weather(data.postalCodes[index],index)
+                    if (--j) loop(j);
+                    display_hotspots();
+                }, 500)
+            })(data.postalCodes.length);
+        }
+    });
+}
+
+$(function() {
+    $("a.search").click(function() {
+        var destination = $("#destination").val();
+        hotspots = [];
+        update_hotspots = {};
+
+        // get postal code of location
+        $.ajax({
+            url: "http://ws.geonames.net/postalCodeSearchJSON?country=US&username=ms_test201302&placename=" + encodeID(destination),
+            // url: "http://i.wxbug.net/REST/Direct/GetAlert.ashx?zip=97202&api_key=fbzpn6ambx9de5nusf49rv4d&f=wb_handle",
+            type: 'POST',
+            success: function(data) {
+                if (data.postalCodes.length > 0) {
+                    var query = data.postalCodes[0];
+                    nearby_places(query);
+                    $('.query').text("Hotspots around " + query.placeName + ", " + query.adminCode1);
+                }
+                // else, no results
+            }
+        });
+    });
+});
+                            
+function inputFocus(i){
+    if(i.value==i.defaultValue){ i.value=""; i.style.color="#000"; }
+}
+function inputBlur(i){
+    if(i.value==""){ i.value=i.defaultValue; i.style.color="#888"; }
+}
+
+</script>
+<div class="title">Hotspots</div>
+
+<form class="city" action="javascript:void(0)">
+<input type="text" id="destination" class="city" onfocus="inputFocus(this)" onblur="inputBlur(this)" style="color:#888;" value="Enter destination city" />
+</form>
+
+<div>
+<a class="search">Search</a>
+</div>
+
+<div class="query"></div>
+
+<div class="hotspots"></div>
+
+</body>
+
+<script>
+$("#destination").keydown(function(event){
+    if(event.keyCode == 13){
+        $("a.search").click();
+    }
+});
+</script>
+</html>
