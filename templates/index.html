@@ -196,10 +196,10 @@ function inputBlur(i){
 <div class="title">Hotspots</div>
 
 <form class="city" action="javascript:void(0)">
-<input type="text" id="destination" class="city" onfocus="inputFocus(this)" onblur="inputBlur(this)" style="color:#888;" value="Enter destination city" />
+<input type="text" id="destination" class="city" onfocus="inputFocus(this)" onblur="inputBlur(this)" style="color:#888;" value="Enter destination city" tabindex=1 />
 </form>
 
-<div><a class="search">Search</a></div>
+<div><a class="search" tabindex=2 >Search</a></div>
 
 <div class="query"></div>
 
@@ -208,7 +208,7 @@ function inputBlur(i){
 </body>
 
 <script>
-$("#destination").keydown(function(event){
+$("#destination, a.search").keydown(function(event){
     if(event.keyCode == 13){
         $("a.search").click();
     }
