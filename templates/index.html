@@ -11,13 +11,19 @@
 <script>
 var $SCRIPT_ROOT = {{request.script_root|tojson|safe}};
 var baseurl = $SCRIPT_ROOT
+
 // var WB_REST_API_KEY = 'fbzpn6ambx9de5nusf49rv4d'
 // var WB_GEO_API_KEY = '2unavy5kacmhfh95u5cahfvw'
 // var GN_USERNAME = 'ms_test201302'
 // var GN_SERVER = 'ws.geonames.net'
-var hotspots = [];
+
 var NHOTSPOTS = 10;
+var delay = 500;
+
+var hotspots = [];
 var update_hotspots = {};
+
+var requests = [];
 var abort_query = false;
 
 function display_hotspots()
@@ -85,7 +91,7 @@ function get_weather(place,i)
     update_hotspots['f' + i] = function(forecast)
     {
         // get postal code of location
-        $.ajax({
+        requests.push( $.ajax({
             url: "http://ws.geonames.net/postalCodeLookupJSON?country=US&username=ms_test201302&postalcode=" + zip,
             type: 'POST',
             success: function(data) {
@@ -95,15 +101,15 @@ function get_weather(place,i)
                 }
                 // else, no results
             }
-        });
+        }) );
     }
 
     // console.log(place);
-    $.ajax({
+    requests.push( $.ajax({
         url: "http://i.wxbug.net/REST/Direct/GetForecast.ashx?api_key=fbzpn6ambx9de5nusf49rv4d&nf=7&l=en&c=US&f=update_hotspots.f" + i + "&zip=" + zip,
         type: 'GET',
         dataType: 'jsonp',
-    });
+    }) );
 }
 
 // find nearby places
@@ -111,7 +117,7 @@ function nearby_places(place)
 {
     //console.log(place);
     var postalCode = place.postalCode;
-    $.ajax({
+    requests.push( $.ajax({
         // radius units in km, 48 km = 30 mi
         url: "http://ws.geonames.net/findNearbyPostalCodesJSON?radius=48&country=US&username=ms_test201302&maxRows=30&lat=" + place.lat + "&lng=" + place.lng,
         type: 'POST',
@@ -128,10 +134,30 @@ function nearby_places(place)
                     }
                     if (--j) loop(j);
                     display_hotspots();
-                }, 500)
+                }, delay)
             })(data.postalCodes.length);
         }
-    });
+    }) );
+}
+
+function get_postal_code()
+{
+    // get postal code of location
+    var destination = $("#destination").val();
+    requests.push( $.ajax({
+        url: "http://ws.geonames.net/postalCodeSearchJSON?country=US&username=ms_test201302&placename=" + encodeID(destination),
+        type: 'POST',
+        success: function(data) {
+            if (data.postalCodes.length > 0) {
+                var query = data.postalCodes[0];
+                nearby_places(query);
+                $('.query').text("Hotspots around " + query.placeName + ", " + query.adminCode1);
+            }
+            else {
+                $('.query').text("Sorry, no results for " + encodeID(destination));
+            }
+        }
+    }) );
 }
 
 $(function() {
@@ -140,25 +166,20 @@ $(function() {
         if (hotspots.length > 0)
         {
             abort_query = true;
+            setTimeout(function() {
+                console.log('something');
+                $.each( requests, function( i, v ){
+                    v.abort();
+                })
+                requests = [];
+                hotspots = [];
+                update_hotspots = {};
+                get_postal_code();
+            }, delay);
+            console.log('something else');
+        } else {
+            get_postal_code();
         }
-        hotspots = [];
-        update_hotspots = {};
-
-        // get postal code of location
-        var destination = $("#destination").val();
-        $.ajax({
-            url: "http://ws.geonames.net/postalCodeSearchJSON?country=US&username=ms_test201302&placename=" + encodeID(destination),
-            // url: "http://i.wxbug.net/REST/Direct/GetAlert.ashx?zip=97202&api_key=fbzpn6ambx9de5nusf49rv4d&f=wb_handle",
-            type: 'POST',
-            success: function(data) {
-                if (data.postalCodes.length > 0) {
-                    var query = data.postalCodes[0];
-                    nearby_places(query);
-                    $('.query').text("Hotspots around " + query.placeName + ", " + query.adminCode1);
-                }
-                // else, no results
-            }
-        });
     });
 });
                             
