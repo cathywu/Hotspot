@@ -15,9 +15,10 @@ var baseurl = $SCRIPT_ROOT
 // var WB_GEO_API_KEY = '2unavy5kacmhfh95u5cahfvw'
 // var GN_USERNAME = 'ms_test201302'
 // var GN_SERVER = 'ws.geonames.net'
-hotspots = [];
-NHOTSPOTS = 10;
-update_hotspots = {};
+var hotspots = [];
+var NHOTSPOTS = 10;
+var update_hotspots = {};
+var abort_query = false;
 
 function display_hotspots()
 {
@@ -119,6 +120,12 @@ function nearby_places(place)
                 setTimeout(function() {
                     var index = data.postalCodes.length-j;
                     get_weather(data.postalCodes[index],index)
+                    if (abort_query)
+                    {
+                        abort_query = false;
+                        j=1;
+                        return;
+                    }
                     if (--j) loop(j);
                     display_hotspots();
                 }, 500)
@@ -129,11 +136,16 @@ function nearby_places(place)
 
 $(function() {
     $("a.search").click(function() {
-        var destination = $("#destination").val();
+        // reset globals
+        if (hotspots.length > 0)
+        {
+            abort_query = true;
+        }
         hotspots = [];
         update_hotspots = {};
 
         // get postal code of location
+        var destination = $("#destination").val();
         $.ajax({
             url: "http://ws.geonames.net/postalCodeSearchJSON?country=US&username=ms_test201302&placename=" + encodeID(destination),
             // url: "http://i.wxbug.net/REST/Direct/GetAlert.ashx?zip=97202&api_key=fbzpn6ambx9de5nusf49rv4d&f=wb_handle",
