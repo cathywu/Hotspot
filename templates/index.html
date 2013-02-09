@@ -2,12 +2,12 @@
 <html>
     <head>
         <link rel=stylesheet type=text/css href="{{ url_for('static', filename='style.css') }}">
-    </head>
-<body>
-
 <script type="text/javascript" src="{{ url_for('static', filename='js/jquery-1.9.0.min.js')}}"></script>
 <script type="text/javascript" src="{{ url_for('static', filename='js/jquery.xdomainajax.js')}}"></script>
 <script type="text/javascript" src="{{ url_for('static', filename='js/date.format.js')}}"></script>
+    </head>
+
+<body>
 <script>
 var $SCRIPT_ROOT = {{request.script_root|tojson|safe}};
 var baseurl = $SCRIPT_ROOT
@@ -17,14 +17,14 @@ var baseurl = $SCRIPT_ROOT
 // var GN_USERNAME = 'ms_test201302'
 // var GN_SERVER = 'ws.geonames.net'
 
-var NHOTSPOTS = 10;
-var delay = 500;
+var NHOTSPOTS = 10; // number of search results
+var delay = 500; // delay to counter weatherbug.com's rate-limiting
 
-var hotspots = [];
-var update_hotspots = {};
+var hotspots = []; // search results
+var update_hotspots = {}; // function for each jsonp call from weatherbug
 
-var requests = [];
-var abort_query = false;
+var requests = []; // current ajax requests
+var abort_query = false; // abort weatherbug.com jsonp ajaxing
 
 function display_hotspots()
 {
@@ -119,7 +119,7 @@ function nearby_places(place)
     var postalCode = place.postalCode;
     requests.push( $.ajax({
         // radius units in km, 48 km = 30 mi
-        url: "http://ws.geonames.net/findNearbyPostalCodesJSON?radius=48&country=US&username=ms_test201302&maxRows=30&lat=" + place.lat + "&lng=" + place.lng,
+        url: "http://ws.geonames.net/findNearbyPostalCodesJSON?radius=48&country=US&username=ms_test201302&maxRows=50&lat=" + place.lat + "&lng=" + place.lng,
         type: 'POST',
         success: function(data) {
             (function loop(j) {
@@ -183,6 +183,7 @@ $(function() {
     });
 });
                             
+// input textbox logic
 function inputFocus(i){
     if(i.value==i.defaultValue){ i.value=""; i.style.color="#000"; }
 }
@@ -191,15 +192,14 @@ function inputBlur(i){
 }
 
 </script>
+
 <div class="title">Hotspots</div>
 
 <form class="city" action="javascript:void(0)">
 <input type="text" id="destination" class="city" onfocus="inputFocus(this)" onblur="inputBlur(this)" style="color:#888;" value="Enter destination city" />
 </form>
 
-<div>
-<a class="search">Search</a>
-</div>
+<div><a class="search">Search</a></div>
 
 <div class="query"></div>
 
